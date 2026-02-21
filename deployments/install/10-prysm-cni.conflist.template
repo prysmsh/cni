@@ -1,0 +1,7 @@
+{
+  "type": "prysm-cni",
+  "targetPort": "15001",
+  "excludeNamespaces": ["kube-system", "kube-public", "prysm-system", "prysm-logging", "prysm-honeypots"],
+  "excludeCIDR": "10.43.0.0/16",
+  "nodeIP": "__NODE_IP__"
+}

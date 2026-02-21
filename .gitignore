@@ -1,0 +1,19 @@
+# Compiled binary
+prysm-cni
+
+# Test binaries
+*.test
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Claude
+.claude/

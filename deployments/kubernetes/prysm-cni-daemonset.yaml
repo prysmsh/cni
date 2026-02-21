@@ -1,0 +1,108 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: prysm-cni-node
+  namespace: prysm-system
+  labels:
+    app: prysm-cni-node
+    app.kubernetes.io/name: prysm-cni
+    prysm.sh/managed: "true"
+spec:
+  selector:
+    matchLabels:
+      app: prysm-cni-node
+  template:
+    metadata:
+      labels:
+        app: prysm-cni-node
+        app.kubernetes.io/name: prysm-cni
+        prysm.sh/managed: "true"
+    spec:
+      serviceAccountName: prysm-cni
+      hostNetwork: true
+      tolerations:
+        - operator: Exists
+      priorityClassName: system-node-critical
+      containers:
+        - name: install-cni
+          image: ghcr.io/prysmsh/cni:latest
+          imagePullPolicy: Always
+          command: ["/install-cni.sh"]
+          env:
+            - name: HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: CNI_NETWORK_CONFIG
+              value: '{"type":"prysm-cni","targetPort":"15001","excludeNamespaces":["kube-system","kube-public","prysm-system","prysm-honeypots"]}'
+            - name: CHAINED_CNI_PLUGIN
+              value: "true"
+            - name: SLEEP
+              value: "true"
+            - name: MOUNTED_CNI_BIN_DIR_K3S
+              value: "/host/bin"
+            - name: MOUNTED_CNI_NET_DIR
+              value: "/host/var/lib/rancher/k3s/agent/etc/cni/net.d"
+          securityContext:
+            privileged: true
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          volumeMounts:
+            - name: cni-bin-dir
+              mountPath: /host/opt/cni/bin
+            - name: cni-bin-dir-k3s
+              mountPath: /host/bin
+            - name: cni-net-dir
+              mountPath: /host/etc/cni/net.d
+            - name: cni-net-dir-k3s
+              mountPath: /host/var/lib/rancher/k3s/agent/etc/cni/net.d
+      volumes:
+        - name: cni-bin-dir
+          hostPath:
+            path: /opt/cni/bin
+            type: DirectoryOrCreate
+        - name: cni-bin-dir-k3s
+          hostPath:
+            path: /bin
+            type: DirectoryOrCreate
+        - name: cni-net-dir
+          hostPath:
+            path: /etc/cni/net.d
+            type: DirectoryOrCreate
+        - name: cni-net-dir-k3s
+          hostPath:
+            path: /var/lib/rancher/k3s/agent/etc/cni/net.d
+            type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prysm-cni
+  namespace: prysm-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prysm-cni
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "nodes", "namespaces"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prysm-cni
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: prysm-cni
+subjects:
+  - kind: ServiceAccount
+    name: prysm-cni
+    namespace: prysm-system
